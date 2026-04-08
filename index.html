@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Chick</title>
+  <style>
+    :root {
+      --gold: #f4c842; --red: #e05060; --green: #6abf6a;
+      --bg: #1a1a2e; --surface: #23233a; --border: #33334d;
+      --text: #eeeeee; --dim: #888899;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+      height: 100dvh; overflow: hidden; user-select: none; -webkit-user-select: none;
+    }
+    #app { height: 100%; }
+    .screen { display: none; flex-direction: column; height: 100%; padding: 16px; gap: 10px; overflow: hidden; }
+    .screen.active { display: flex; }
+    .screen-center { justify-content: center; align-items: center; text-align: center; gap: 20px; }
+
+    /* ── LOBBY ── */
+    .lobby-title {
+      font-size: 42px; font-weight: 900; letter-spacing: 10px;
+      text-transform: uppercase; color: var(--gold);
+    }
+    .lobby-sub { font-size: 13px; color: var(--dim); max-width: 260px; line-height: 1.7; }
+    .join-row { display: flex; gap: 8px; width: 100%; max-width: 280px; }
+    .code-input {
+      flex: 1; padding: 14px 12px; background: var(--surface);
+      border: 2px solid var(--border); border-radius: 10px;
+      color: var(--text); font-size: 22px; font-weight: 700;
+      text-align: center; letter-spacing: 0.2em; text-transform: uppercase;
+      outline: none; -webkit-appearance: none;
+    }
+    .code-input:focus { border-color: var(--gold); }
+    .code-input::placeholder { color: var(--border); letter-spacing: 0; font-weight: 400; font-size: 14px; }
+    .error-text { color: var(--red); font-size: 13px; min-height: 18px; }
+
+    /* ── WAITING ── */
+    .waiting-code { font-size: 60px; font-weight: 900; letter-spacing: 0.2em; color: var(--gold); }
+    .waiting-label { font-size: 14px; color: var(--dim); }
+    .pulse { animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* ── GAME HEADER ── */
+    .game-header {
+      display: flex; justify-content: space-between; align-items: center;
+      flex-shrink: 0; padding: 2px 0 4px;
+    }
+    .player-block { display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 72px; }
+    .player-emoji { font-size: 24px; line-height: 1; }
+    .player-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.07em; color: var(--dim);
+    }
+    .player-label.you { color: var(--gold); }
+    .turn-badge {
+      font-size: 12px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.05em; padding: 6px 14px; border-radius: 20px;
+      background: var(--surface); color: var(--dim); transition: background 0.2s, color 0.2s;
+    }
+    .turn-badge.active { background: var(--gold); color: var(--bg); }
+
+    /* ── BOARD ── */
+    .board-wrap {
+      flex: 1; display: flex; justify-content: center; align-items: center; min-height: 0;
+    }
+    #board {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      grid-template-rows: repeat(8, 1fr);
+      height: 100%;
+      max-height: calc(100vw - 32px);
+      aspect-ratio: 1;
+      border: 2px solid var(--border); border-radius: 8px; overflow: hidden;
+      box-shadow: 0 6px 28px rgba(0,0,0,0.5);
+    }
+    .cell {
+      display: flex; align-items: center; justify-content: center;
+      font-size: min(calc((100vw - 32px) / 8 * 0.6), calc((100dvh - 170px) / 8 * 0.6));
+      cursor: pointer; position: relative; transition: filter 0.08s;
+    }
+    .cell:hover { filter: brightness(1.12); }
+    .light { background: #f0d9b5; }
+    .dark  { background: #b58863; }
+    .selected { background: var(--green) !important; }
+    .valid-move::after {
+      content: ''; position: absolute;
+      width: 34%; height: 34%; border-radius: 50%;
+      background: rgba(106, 191, 106, 0.6); pointer-events: none;
+    }
+    .valid-capture { outline: 3px solid var(--green); outline-offset: -3px; }
+
+    /* ── STATUS + LEGEND ── */
+    .game-status {
+      text-align: center; font-size: 13px; color: var(--dim);
+      flex-shrink: 0; min-height: 18px;
+    }
+    .game-legend { font-size: 11px; color: var(--dim); text-align: center; flex-shrink: 0; }
+
+    /* ── GAME OVER ── */
+    .go-title { font-size: 38px; font-weight: 900; }
+    .go-sub { font-size: 15px; color: var(--dim); }
+
+    /* ── SHARED BUTTONS ── */
+    .btn-big {
+      padding: 15px 40px; border: none; border-radius: 14px;
+      font-size: 16px; font-weight: 800; cursor: pointer;
+      transition: opacity 0.1s; width: 100%; max-width: 280px;
+    }
+    .btn-big:active { opacity: 0.72; }
+    .btn-primary { background: var(--gold); color: var(--bg); }
+    .btn-danger   { background: var(--red);  color: #fff; }
+    .btn-secondary { background: var(--border); color: var(--text); }
+    .divider { font-size: 13px; color: var(--dim); }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- LOBBY -->
+  <div id="screen-lobby" class="screen screen-center active">
+    <div class="lobby-title">Chick</div>
+    <div class="lobby-sub">Capture the enemy's chick to win.<br>Two players, one board.</div>
+    <button class="btn-big btn-primary" onclick="createGame()">Create Game</button>
+    <div class="divider">— or join —</div>
+    <div class="join-row">
+      <input class="code-input" id="join-input" maxlength="4" placeholder="CODE"
+             autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
+      <button class="btn-big btn-danger" style="flex:0;padding:14px 20px" onclick="joinGame()">Join</button>
+    </div>
+    <div class="error-text" id="lobby-error"></div>
+  </div>
+
+  <!-- WAITING FOR P2 -->
+  <div id="screen-waiting" class="screen screen-center">
+    <div class="waiting-label">Share this code with your opponent</div>
+    <div class="waiting-code" id="display-code">----</div>
+    <div class="waiting-label pulse">Waiting for opponent to join…</div>
+    <button class="btn-big btn-secondary" style="margin-top:16px" onclick="cancelGame()">Cancel</button>
+  </div>
+
+  <!-- GAME -->
+  <div id="screen-game" class="screen">
+    <div class="game-header">
+      <div class="player-block">
+        <div class="player-emoji" id="p1-emoji">🐥🐔</div>
+        <div class="player-label" id="p1-label">White</div>
+      </div>
+      <div class="turn-badge" id="turn-badge">Your Turn</div>
+      <div class="player-block">
+        <div class="player-emoji" id="p2-emoji">🐣🐓</div>
+        <div class="player-label" id="p2-label">Black</div>
+      </div>
+    </div>
+    <div class="board-wrap"><div id="board"></div></div>
+    <div class="game-status" id="game-status"></div>
+    <div class="game-legend" id="game-legend"></div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div id="screen-gameover" class="screen screen-center">
+    <div class="go-title" id="go-title"></div>
+    <div class="go-sub"   id="go-sub"></div>
+    <button class="btn-big btn-primary" style="margin-top:20px" onclick="returnToLobby()">Play Again</button>
+  </div>
+
+</div>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js';
+import { getDatabase, ref, set, get, update, onValue }
+  from 'https://www.gstatic.com/firebasejs/12.11.0/firebase-database.js';
+
+// ── FIREBASE ──────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyAsJboNGVuESMhkivllUD0o8MUB5LUCMRQ",
+  authDomain: "kvgames.firebaseapp.com",
+  databaseURL: "https://kvgames-default-rtdb.firebaseio.com",
+  projectId: "kvgames",
+  storageBucket: "kvgames.firebasestorage.app",
+  messagingSenderId: "463308384695",
+  appId: "1:463308384695:web:5d57623ebd52101ad26032"
+};
+const fbApp = initializeApp(firebaseConfig);
+const db = getDatabase(fbApp);
+
+// ── PIECE CONSTANTS ───────────────────────────────────────
+// 0 = empty, 1 = white chick, 2 = white hen, 3 = black chick, 4 = black hen
+const W_CHICK = 1, W_HEN = 2, B_CHICK = 3, B_HEN = 4;
+const EMOJI = { 1: '🐥', 2: '🐔', 3: '🐣', 4: '🐓' };
+
+function colorOf(p) { return (p === W_CHICK || p === W_HEN) ? 'white' : 'black'; }
+function isChick(p)  { return p === W_CHICK || p === B_CHICK; }
+
+// ── GAME LOGIC ────────────────────────────────────────────
+function makeBoard() {
+  const b = Array(64).fill(0);
+  for (let c = 0; c < 8; c++) {
+    b[0 * 8 + c] = c === 4 ? B_CHICK : B_HEN;
+    b[1 * 8 + c] = B_HEN;
+    b[6 * 8 + c] = W_HEN;
+    b[7 * 8 + c] = c === 4 ? W_CHICK : W_HEN;
+  }
+  return b;
+}
+
+function getMoves(board, r, c) {
+  const piece = board[r * 8 + c];
+  if (!piece) return [];
+  const color = colorOf(piece);
+  const dirs = isChick(piece)
+    ? [[-1,0],[1,0],[0,-1],[0,1]]
+    : [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+  return dirs
+    .map(([dr,dc]) => [r + dr, c + dc])
+    .filter(([nr, nc]) => {
+      if (nr < 0 || nr > 7 || nc < 0 || nc > 7) return false;
+      const t = board[nr * 8 + nc];
+      return !t || colorOf(t) !== color;
+    });
+}
+
+function hasAnyMoves(board, color) {
+  for (let r = 0; r < 8; r++)
+    for (let c = 0; c < 8; c++)
+      if (board[r*8+c] && colorOf(board[r*8+c]) === color)
+        if (getMoves(board, r, c).length > 0) return true;
+  return false;
+}
+
+// ── STATE ─────────────────────────────────────────────────
+let gameId      = null;
+let localPlayer = null; // 'white' | 'black'
+let G           = {};
+let unsubscribe = null;
+let selected    = null; // [r, c] actual coords
+let validMoves  = [];   // [[r, c], ...] actual coords
+
+// ── HELPERS ───────────────────────────────────────────────
+function toArr(val, len) {
+  if (!val) return Array(len || 0).fill(0);
+  if (Array.isArray(val)) return val.map(Number);
+  const keys = Object.keys(val).map(Number).filter(k => !isNaN(k));
+  if (!keys.length) return Array(len || 0).fill(0);
+  const arr = Array(Math.max(...keys) + 1).fill(0);
+  keys.forEach(k => { arr[k] = Number(val[k]); });
+  return arr;
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function genCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({length: 4}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+// Visual ↔ actual coordinate conversion (black sees board flipped 180°)
+function toActual(vr, vc) { return localPlayer === 'black' ? [7-vr, 7-vc] : [vr, vc]; }
+
+// ── LOBBY ─────────────────────────────────────────────────
+window.createGame = async function() {
+  gameId = genCode();
+  localPlayer = 'white';
+  sessionStorage.setItem('chick', JSON.stringify({ gameId, localPlayer }));
+
+  await set(ref(db, `chick/${gameId}`), {
+    board: makeBoard(),
+    phase: 'waiting',
+    turn: 'white',
+    winner: null,
+  });
+
+  document.getElementById('display-code').textContent = gameId;
+  showScreen('screen-waiting');
+  startListening();
+};
+
+window.joinGame = async function() {
+  const code = document.getElementById('join-input').value.toUpperCase().trim();
+  const err = document.getElementById('lobby-error');
+  err.textContent = '';
+  if (code.length !== 4) { err.textContent = 'Enter a 4-letter code.'; return; }
+
+  const snap = await get(ref(db, `chick/${code}`));
+  if (!snap.exists()) { err.textContent = 'Game not found.'; return; }
+  const s = snap.val();
+  if (s.phase !== 'waiting') { err.textContent = 'Game already in progress.'; return; }
+
+  gameId = code;
+  localPlayer = 'black';
+  sessionStorage.setItem('chick', JSON.stringify({ gameId, localPlayer }));
+
+  await update(ref(db, `chick/${gameId}`), { phase: 'active' });
+  startListening();
+};
+
+window.cancelGame = async function() {
+  if (gameId) await set(ref(db, `chick/${gameId}`), null);
+  stopListening();
+  gameId = null; localPlayer = null;
+  sessionStorage.removeItem('chick');
+  showScreen('screen-lobby');
+};
+
+window.returnToLobby = function() {
+  stopListening();
+  gameId = null; localPlayer = null;
+  selected = null; validMoves = [];
+  sessionStorage.removeItem('chick');
+  showScreen('screen-lobby');
+};
+
+// ── FIREBASE ──────────────────────────────────────────────
+function startListening() {
+  stopListening();
+  unsubscribe = onValue(ref(db, `chick/${gameId}`), snap => {
+    if (!snap.exists()) return;
+    const r = snap.val();
+    G = { board: toArr(r.board, 64), phase: r.phase, turn: r.turn, winner: r.winner || null };
+    onStateChange();
+  });
+}
+
+function stopListening() {
+  if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+}
+
+function onStateChange() {
+  if (G.phase === 'waiting') {
+    if (localPlayer === 'white') showScreen('screen-waiting');
+    return;
+  }
+  if (G.phase === 'gameover') {
+    renderGameOver();
+    showScreen('screen-gameover');
+    return;
+  }
+  // Reset selection when turn changes
+  if (G.turn !== localPlayer) { selected = null; validMoves = []; }
+  renderGame();
+  showScreen('screen-game');
+}
+
+// ── MOVE HANDLING ─────────────────────────────────────────
+function handleCell(vr, vc) {
+  if (G.phase !== 'active' || G.turn !== localPlayer) return;
+
+  const [ar, ac] = toActual(vr, vc);
+
+  // Move to valid destination
+  if (selected && validMoves.some(([mr, mc]) => mr === ar && mc === ac)) {
+    applyMove(selected[0], selected[1], ar, ac);
+    return;
+  }
+
+  // Select own piece
+  const piece = G.board[ar * 8 + ac];
+  if (piece && colorOf(piece) === localPlayer) {
+    selected = [ar, ac];
+    validMoves = getMoves(G.board, ar, ac);
+    renderGame();
+    return;
+  }
+
+  // Deselect
+  selected = null; validMoves = [];
+  renderGame();
+}
+
+async function applyMove(fr, fc, tr, tc) {
+  const board = [...G.board];
+  const captured = board[tr * 8 + tc];
+  board[tr * 8 + tc] = board[fr * 8 + fc];
+  board[fr * 8 + fc] = 0;
+  selected = null; validMoves = [];
+
+  const nextTurn = localPlayer === 'white' ? 'black' : 'white';
+
+  if (isChick(captured)) {
+    // Win — captured enemy chick
+    await update(ref(db, `chick/${gameId}`), {
+      board, phase: 'gameover', turn: nextTurn, winner: localPlayer,
+    });
+    return;
+  }
+
+  // Check for stalemate
+  if (!hasAnyMoves(board, nextTurn)) {
+    await update(ref(db, `chick/${gameId}`), {
+      board, phase: 'gameover', turn: nextTurn, winner: 'draw',
+    });
+    return;
+  }
+
+  await update(ref(db, `chick/${gameId}`), { board, turn: nextTurn });
+}
+
+// ── RENDER ────────────────────────────────────────────────
+function renderGame() {
+  const myTurn = G.turn === localPlayer;
+
+  // Header
+  const isWhite = localPlayer === 'white';
+  document.getElementById('p1-emoji').textContent = '🐥🐔';
+  document.getElementById('p2-emoji').textContent = '🐣🐓';
+  const p1Lbl = document.getElementById('p1-label');
+  const p2Lbl = document.getElementById('p2-label');
+  p1Lbl.textContent = isWhite ? 'You (white)' : 'White';
+  p2Lbl.textContent = !isWhite ? 'You (black)' : 'Black';
+  p1Lbl.className = 'player-label' + (isWhite ? ' you' : '');
+  p2Lbl.className = 'player-label' + (!isWhite ? ' you' : '');
+
+  const badge = document.getElementById('turn-badge');
+  badge.textContent = myTurn ? 'Your Turn' : 'Their Turn';
+  badge.className = 'turn-badge' + (myTurn ? ' active' : '');
+
+  // Status
+  document.getElementById('game-status').textContent = myTurn
+    ? (selected ? 'Tap a highlighted square to move' : 'Select one of your pieces')
+    : 'Waiting for opponent…';
+
+  // Legend
+  document.getElementById('game-legend').textContent = isWhite
+    ? '🐥 your chick · 🐔 your hens · 🐣 enemy chick · 🐓 enemy hens'
+    : '🐣 your chick · 🐓 your hens · 🐥 enemy chick · 🐔 enemy hens';
+
+  // Board
+  const boardEl = document.getElementById('board');
+  let html = '';
+  for (let vr = 0; vr < 8; vr++) {
+    for (let vc = 0; vc < 8; vc++) {
+      const [ar, ac] = toActual(vr, vc);
+      const piece = G.board[ar * 8 + ac];
+      const isLight = (vr + vc) % 2 === 0;
+      const isSel = selected && selected[0] === ar && selected[1] === ac;
+      const isValid = validMoves.some(([mr, mc]) => mr === ar && mc === ac);
+
+      let cls = 'cell ' + (isLight ? 'light' : 'dark');
+      if (isSel) cls += ' selected';
+      else if (isValid && piece) cls += ' valid-capture';
+      else if (isValid) cls += ' valid-move';
+
+      html += `<div class="${cls}" data-vr="${vr}" data-vc="${vc}">${piece ? EMOJI[piece] : ''}</div>`;
+    }
+  }
+  boardEl.innerHTML = html;
+
+  if (myTurn) {
+    boardEl.querySelectorAll('.cell').forEach(el =>
+      el.addEventListener('click', () => handleCell(+el.dataset.vr, +el.dataset.vc))
+    );
+  }
+}
+
+function renderGameOver() {
+  const title = document.getElementById('go-title');
+  const sub   = document.getElementById('go-sub');
+  if (G.winner === 'draw') {
+    title.textContent = 'Draw!';
+    sub.textContent = 'No legal moves remaining.';
+  } else if (G.winner === localPlayer) {
+    title.textContent = 'You Win! 🎉';
+    sub.textContent = 'You captured the enemy chick.';
+  } else {
+    title.textContent = 'You Lose.';
+    sub.textContent = 'Your chick was captured.';
+  }
+}
+
+// ── RECONNECT ON RELOAD ───────────────────────────────────
+(function tryReconnect() {
+  const saved = sessionStorage.getItem('chick');
+  if (!saved) return;
+  try {
+    const { gameId: gid, localPlayer: lp } = JSON.parse(saved);
+    gameId = gid; localPlayer = lp;
+    startListening();
+  } catch { sessionStorage.removeItem('chick'); }
+})();
+</script>
+</body>
+</html>
