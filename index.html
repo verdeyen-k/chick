@@ -82,8 +82,10 @@
     }
     .cell {
       display: flex; align-items: center; justify-content: center;
-      font-size: min(calc((100vw - 32px) / 8 * 0.6), calc((100dvh - 170px) / 8 * 0.6));
       cursor: pointer; position: relative; transition: filter 0.08s;
+    }
+    .cell img {
+      width: 72%; height: 72%; object-fit: contain; pointer-events: none;
     }
     .cell:hover { filter: brightness(1.12); }
     .light { background: #f0d9b5; }
@@ -192,7 +194,14 @@ const db = getDatabase(fbApp);
 // ── PIECE CONSTANTS ───────────────────────────────────────
 // 0=empty, 1=white chick, 2=white hen, 3=black chick, 4=black hen, 5=white rooster, 6=black rooster
 const W_CHICK = 1, W_HEN = 2, B_CHICK = 3, B_HEN = 4, W_ROOSTER = 5, B_ROOSTER = 6;
-const EMOJI = { 1: '🐥', 2: '🐔', 3: '🐣', 4: '🐤', 5: '🐓', 6: '🦃' };
+const IMG = {
+  1: 'white-chick.png.png',
+  2: 'white-chicken.png.png',
+  3: 'black-chick.png.png',
+  4: 'black-chicken.png.png',
+  5: 'white-rooster.png.png',
+  6: 'black-rooster.png.png',
+};
 
 function colorOf(p) { return (p === W_CHICK || p === W_HEN || p === W_ROOSTER) ? 'white' : 'black'; }
 function isChick(p)  { return p === W_CHICK || p === B_CHICK; }
@@ -411,8 +420,8 @@ function renderGame() {
 
   // Header
   const isWhite = localPlayer === 'white';
-  document.getElementById('p1-emoji').textContent = '🐥🐔';
-  document.getElementById('p2-emoji').textContent = '🐣🐓';
+  document.getElementById('p1-emoji').innerHTML = `<img src="${IMG[1]}" style="height:22px"><img src="${IMG[2]}" style="height:22px">`;
+  document.getElementById('p2-emoji').innerHTML = `<img src="${IMG[3]}" style="height:22px"><img src="${IMG[4]}" style="height:22px">`;
   const p1Lbl = document.getElementById('p1-label');
   const p2Lbl = document.getElementById('p2-label');
   p1Lbl.textContent = isWhite ? 'You (white)' : 'White';
@@ -430,9 +439,10 @@ function renderGame() {
     : 'Waiting for opponent…';
 
   // Legend
-  document.getElementById('game-legend').textContent = isWhite
-    ? '🐥 chick · 🐔 hens · 🐓 roosters · 🐣🐤🦃 enemy'
-    : '🐣 chick · 🐤 hens · 🦃 roosters · 🐥🐔🐓 enemy';
+  const mk = (id, lbl) => `<img src="${IMG[id]}" style="height:14px;vertical-align:middle"> ${lbl}`;
+  document.getElementById('game-legend').innerHTML = isWhite
+    ? `${mk(1,'chick')} · ${mk(2,'hens')} · ${mk(5,'roosters')} · ${mk(3,'')}${mk(4,'')}${mk(6,'')} enemy`
+    : `${mk(3,'chick')} · ${mk(4,'hens')} · ${mk(6,'roosters')} · ${mk(1,'')}${mk(2,'')}${mk(5,'')} enemy`;
 
   // Board
   const boardEl = document.getElementById('board');
@@ -450,7 +460,7 @@ function renderGame() {
       else if (isValid && piece) cls += ' valid-capture';
       else if (isValid) cls += ' valid-move';
 
-      html += `<div class="${cls}" data-vr="${vr}" data-vc="${vc}">${piece ? EMOJI[piece] : ''}</div>`;
+      html += `<div class="${cls}" data-vr="${vr}" data-vc="${vc}">${piece ? `<img src="${IMG[piece]}">` : ''}</div>`;
     }
   }
   boardEl.innerHTML = html;
