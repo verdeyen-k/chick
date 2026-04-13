@@ -122,6 +122,55 @@
     .btn-danger   { background: var(--red);  color: #fff; }
     .btn-secondary { background: var(--border); color: var(--text); }
     .divider { font-size: 13px; color: var(--dim); }
+
+    /* ── HOW TO PLAY LINK ── */
+    .how-to-play-link {
+      font-size: 13px; color: var(--dim); text-decoration: underline;
+      cursor: pointer; background: none; border: none; padding: 0;
+      font-family: inherit;
+    }
+    .how-to-play-link:hover { color: var(--text); }
+
+    /* ── INSTRUCTIONS MODAL ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.72); z-index: 100;
+      justify-content: center; align-items: center; padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 24px 20px; max-width: 340px; width: 100%;
+      max-height: 80dvh; overflow-y: auto;
+    }
+    .modal h2 {
+      font-size: 18px; font-weight: 900; letter-spacing: 2px;
+      text-transform: uppercase; color: var(--gold); margin-bottom: 16px; text-align: center;
+    }
+    .modal-section { margin-bottom: 16px; }
+    .modal-section h3 {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.1em; color: var(--dim); margin-bottom: 10px;
+    }
+    .piece-row {
+      display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+    }
+    .piece-row img { height: 32px; width: 32px; object-fit: contain; flex-shrink: 0; }
+    .piece-info { font-size: 13px; line-height: 1.5; }
+    .piece-name { font-weight: 700; color: var(--text); }
+    .piece-move { color: var(--dim); }
+    .modal-goal {
+      background: var(--bg); border-radius: 10px; padding: 12px 14px;
+      font-size: 13px; line-height: 1.6; color: var(--text);
+    }
+    .modal-goal strong { color: var(--gold); }
+    .modal-close {
+      width: 100%; margin-top: 20px; padding: 12px;
+      background: var(--border); color: var(--text);
+      border: none; border-radius: 10px; font-size: 15px;
+      font-weight: 700; cursor: pointer; font-family: inherit;
+    }
+    .modal-close:active { opacity: 0.72; }
   </style>
 </head>
 <body>
@@ -139,6 +188,46 @@
       <button class="btn-big btn-danger" style="flex:0;padding:14px 20px" onclick="joinGame()">Join</button>
     </div>
     <div class="error-text" id="lobby-error"></div>
+    <button class="how-to-play-link" onclick="openInstructions()">How to Play</button>
+  </div>
+
+  <!-- INSTRUCTIONS MODAL -->
+  <div class="modal-overlay" id="modal-instructions" onclick="closeInstructionsOutside(event)">
+    <div class="modal">
+      <h2>How to Play</h2>
+      <div class="modal-section">
+        <div class="modal-goal"><strong>Goal:</strong> Capture your opponent's chick to win. If a player has no legal moves, the game is a draw.</div>
+      </div>
+      <div class="modal-section">
+        <h3>Pieces</h3>
+        <div class="piece-row">
+          <img src="white-chick.png.png" alt="chick">
+          <div class="piece-info">
+            <div class="piece-name">Chick</div>
+            <div class="piece-move">Moves 1 square — up, down, left, or right</div>
+          </div>
+        </div>
+        <div class="piece-row">
+          <img src="white-chicken.png.png" alt="hen">
+          <div class="piece-info">
+            <div class="piece-name">Hen</div>
+            <div class="piece-move">Moves 1 square in any direction (like a chess king)</div>
+          </div>
+        </div>
+        <div class="piece-row">
+          <img src="white-rooster.png.png" alt="rooster">
+          <div class="piece-info">
+            <div class="piece-name">Rooster</div>
+            <div class="piece-move">Jumps exactly 2 squares orthogonally — leaps over anything in between</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-section">
+        <h3>Starting Setup</h3>
+        <div class="modal-goal">Back row: hens fill the row, with your <strong>chick</strong> in the 5th column and <strong>roosters</strong> in the 3rd &amp; 6th columns. Second row: all hens.</div>
+      </div>
+      <button class="modal-close" onclick="closeInstructions()">Got it</button>
+    </div>
   </div>
 
   <!-- WAITING FOR P2 -->
@@ -488,6 +577,17 @@ function renderGameOver() {
     sub.textContent = 'Your chick was captured.';
   }
 }
+
+// ── INSTRUCTIONS MODAL ───────────────────────────────────
+window.openInstructions = function() {
+  document.getElementById('modal-instructions').classList.add('open');
+};
+window.closeInstructions = function() {
+  document.getElementById('modal-instructions').classList.remove('open');
+};
+window.closeInstructionsOutside = function(e) {
+  if (e.target === document.getElementById('modal-instructions')) closeInstructions();
+};
 
 // ── RECONNECT ON RELOAD ───────────────────────────────────
 (function tryReconnect() {
